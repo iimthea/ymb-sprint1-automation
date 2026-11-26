@@ -25,7 +25,7 @@ Vagrant.configure("2") do |config|
 
     # Install Docker (official Ubuntu package)
     sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt-get update -y
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
@@ -37,8 +37,16 @@ Vagrant.configure("2") do |config|
     sudo usermod -aG docker vagrant
 
     # Clone repositories
-    git clone https://github.com/iimthea/Studentportfoliotemplate.git /home/vagrant/Studentportfoliotemplate
-    git clone https://github.com/iimthea/BankingApp.git /home/vagrant/BankingApp
+    if [ -d /home/vagrant/Studentportfoliotemplate ]; then
+      sudo -u vagrant git -C /home/vagrant/Studentportfoliotemplate pull
+    else
+      git clone https://github.com/iimthea/Studentportfoliotemplate.git /home/vagrant/Studentportfoliotemplate
+    fi
+    if [ -d /home/vagrant/BankingApp ]; then
+      sudo -u vagrant git -C /home/vagrant/BankingApp pull
+    else
+      git clone https://github.com/iimthea/BankingApp.git /home/vagrant/BankingApp
+    fi
 
     # Create docker-compose.yml with auto-restart
     cat <<EOL > /home/vagrant/docker-compose.yml
@@ -51,6 +59,11 @@ services:
     hostname: studentportfolio
     container_name: studentportfolio
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - appnet
 
@@ -61,6 +74,11 @@ services:
     hostname: bankingapp
     container_name: bankingapp
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "-o", "/dev/null", "http://127.0.0.1:5090/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - appnet
 
